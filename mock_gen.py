@@ -1,3 +1,6 @@
+#-*- encoding: utf-8 -*-
+
+import configparser
 from faker import Faker
 fake = Faker('ko-KR')
 import cx_Oracle
@@ -90,8 +93,21 @@ def f_fake_val(column_name, data_type, data_length, data_precision, data_scale, 
 
 
 
+# 설정파일 읽기
+config = configparser.ConfigParser()    
+config.read('config.ini', encoding='utf-8') 
 
-db = cx_Oracle.connect('dms_own', 'dms_own', '13.124.42.125:1521/orcl')
+# 설장파일 색션 확인
+config.sections()
+
+# 섹션값 읽기
+db_host = config['db_info']['db_host']
+db_port = config['db_info']['db_port']
+db_name = config['db_info']['db_name']
+db_username = config['db_info']['db_username']
+db_password = config['db_info']['db_password']
+
+db = cx_Oracle.connect(db_username, db_password, '{}:{}/{}'.format(db_host,db_port,db_name))
 cursor = db.cursor()
 
 
