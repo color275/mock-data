@@ -1,5 +1,7 @@
 #-*- encoding: utf-8 -*-
 
+# nohup python all_mock_gen.py 1 100000 1000 &
+
 import configparser
 from faker import Faker
 from faker_vehicle import VehicleProvider
@@ -17,19 +19,19 @@ import sys
 
 import random
 
-table_name = sys.argv[1].upper()
-pk = sys.argv[2].upper()
-spk = sys.argv[3].upper()
-ind = int(sys.argv[4])
-total_cnt = int(sys.argv[5])
-in_cnt = int(sys.argv[6])
+# table_name = sys.argv[1].upper()
+pk = ""
+spk = "NONE"
+# spk = sys.argv[3].upper()
 
-cnt = int(total_cnt/in_cnt)
+
+
 
 start_dt = dt.datetime(2021, 1, 1)
 start_sdt = '2021-01-01'
 
 def key_data(column_name, ind) :
+    # print(column_name, ind)
     prefix = ""
     if column_name == "CST_NO" :
         prefix = "C"
@@ -37,11 +39,16 @@ def key_data(column_name, ind) :
         prefix = "R"
     elif column_name == "PRD_CD" :
         prefix = "P"
+    else :
+        return ind
 
     return prefix + str(ind).rjust(8,"0")        
 
 def f_fake_val(column_name, data_type, data_length, data_precision, data_scale, ind, seq) :    
+    # print(column_name)
     if column_name == pk :
+        # print(column_name)
+        # print(pk)
         return key_data(column_name, ind)
 
     if column_name == spk :
@@ -63,7 +70,10 @@ def f_fake_val(column_name, data_type, data_length, data_precision, data_scale, 
         elif "QTY" in column_name :
             return fake.pyint(min_value=1, max_value=5)
         else :
-            return fake.pyint(min_value=0, max_value=int("1".ljust(data_precision-data_scale,'0')))	
+            try :
+                return fake.pyint(min_value=0, max_value=int("1".ljust(data_precision-data_scale,'0')))	
+            except :
+                return 0
     
     if data_type[0:3] == 'VAR' :
         if column_name == 'CST_NM' :
@@ -104,11 +114,11 @@ def f_fake_val(column_name, data_type, data_length, data_precision, data_scale, 
         elif column_name == "BIRTH" :
             return fake.date_between(dt.datetime(1960, 1, 1)).strftime('%Y%m%d')
         elif column_name[-4:] == "_SEQ" :
-            return fake.pyint(min_value=0, max_value=4)	
+            return str(fake.pyint(min_value=0, max_value=4)	)[0:data_length]
         elif column_name[-3:] == "_ID" :
-            return fake.pyint(min_value=0, max_value=1000000)	
+            return str(fake.pyint(min_value=0, max_value=1000000)	)[0:data_length]
         elif column_name[-3:] == "_NO`" :
-            return fake.pyint(min_value=0, max_value=1000000)	
+            return str(fake.pyint(min_value=0, max_value=1000000)	)[0:data_length]
         elif column_name[-3:] == "_DT" :
             return fake.date_between(start_dt).strftime('%Y%m%d')
         elif column_name[-3:] == "_YM" :
@@ -133,91 +143,143 @@ config.sections()
 db_host = config['db_info']['db_host']
 db_port = config['db_info']['db_port']
 db_name = config['db_info']['db_name']
-db_username = config['db_info']['db_username']
-db_password = config['db_info']['db_password']
+# db_username = config['db_info']['db_username']
+# db_password = config['db_info']['db_password']
+db_username = "OBJ_OWN"
+db_password = "obj_own"
 
 db = cx_Oracle.connect(db_username, db_password, '{}:{}/{}'.format(db_host,db_port,db_name))
 cursor = db.cursor()
 
+tables_sql = """
+select table_name
+from dba_Tables 
+where owner = 'OBJ_OWN'
+-- and table_name = 'CMM_ANSIM_DLVS_ADDR_D'
+order by table_name
+"""
 
-sql = """
-select column_name, data_type, data_length, data_precision, data_scale
-from all_tab_columns where table_name = '{table_name}'
-""".format(table_name = table_name)
+cursor.execute(tables_sql)
+
+table_list = []
 
 
-cursor.execute(sql)
-
-data_type = []
-column_type = {}
 for row in cursor :
-#     print(row)
-    data_type.append(row[1])
-    column_type[row[0]] = [row[1], row[2], row[3], row[4]]
+    table_list.append(row[0])
 
-column_type = dict(sorted(column_type.items()))
+# print(table_list)
 
-columns = ""
-for k, v in column_type.items() :
-    columns += k + ", "
+for table_name in table_list :
 
-columns = columns + "|"    
-columns = columns.replace(", |", "")
-# columns
+    cursor.execute("truncate table obj_own.{}".format(table_name))
+    print("# {} truncated".format(table_name))
 
-v_columns = ""
-for k, v in column_type.items() :
-    v_columns += ":" + k + ", "
+    # print(table_name)
 
-v_columns = v_columns + "|"    
-v_columns = v_columns.replace(", |", "")
-# v_columns
+    ind = int(sys.argv[1])
+    total_cnt = int(sys.argv[2])
+    in_cnt = int(sys.argv[3])
+    cnt = int(total_cnt/in_cnt)
 
-sql_insert = """INSERT INTO {TABLE_NAME} ( {COLUMNS} )
-VALUES
-(
-{V_COLUMNS}
-)""".format(
-    TABLE_NAME = table_name,
-    COLUMNS = columns,
-    V_COLUMNS = v_columns
-)
-# sql_insert
+    sql = """
+    select column_name, data_type, data_length, data_precision, data_scale, column_id
+    from all_tab_columns where table_name = '{table_name}'    
+    order by column_id
+    """.format(table_name = table_name)
 
 
-import time
-start = time.time() 
+    cursor.execute(sql)
+
+    data_type = []
+    column_type = {}
+
+    first_column = ""
+    ind_first_column = 0
+
+    for row in cursor :
+    #     print(row)
+        data_type.append(row[1])
+        column_type[row[0]] = [row[1], row[2], row[3], row[4]]
+
+        if ind_first_column == 0 :
+            ind_first_column += 1
+            first_column = row[0]
+
+    column_type = dict(sorted(column_type.items()))
+
+    pk = first_column
+    # print(pk)
 
 
-for i in range(1,cnt+1) :
-    bulk = []
-    for j in range(1,in_cnt+1) :
 
-        seq = 1
+    columns = ""
+    for k, v in column_type.items() :
+        columns += k + ", "
 
-        if spk == "NONE" :
-            random_seq = 1
-        else :
-            random_seq = random.choice([1,2,3])
-        while seq <= random_seq :
-            val = []
-            for k, v in column_type.items() :
-                result = f_fake_val(k, v[0], v[1], v[2], v[3], ind, seq)
-                val.append(result)
+    columns = columns + "|"    
+    columns = columns.replace(", |", "")
+    # columns
+
+    v_columns = ""
+    for k, v in column_type.items() :
+        v_columns += ":" + k + ", "
+
+    v_columns = v_columns + "|"    
+    v_columns = v_columns.replace(", |", "")
+    # v_columns
+
+    sql_insert = """INSERT INTO {TABLE_NAME} ( {COLUMNS} )
+    VALUES
+    (
+    {V_COLUMNS}
+    )""".format(
+        TABLE_NAME = table_name,
+        COLUMNS = columns,
+        V_COLUMNS = v_columns
+    )
+    # print(sql_insert)
+    # sql_insert
+
+
+    import time
+    start = time.time() 
+
+
+    for i in range(1,cnt+1) :
+        bulk = []
+        for j in range(1,in_cnt+1) :
+
+            seq = 1
+
+            if spk == "NONE" :
+                random_seq = 1
+            else :
+                random_seq = random.choice([1,2,3])
+            while seq <= random_seq :
+                val = []
+                for k, v in column_type.items() :
+                    result = f_fake_val(k, v[0], v[1], v[2], v[3], ind, seq)
+                    val.append(result)
+                
+                bulk.append(val)
+                
+                seq = seq + 1
             
-            bulk.append(val)
+            ind = ind + 1
             
-            seq = seq + 1
-        
-        ind = ind + 1
-        
-#         print("{k} : {dt} : {vv}".format(k=k, dt=v[0], vv=result))
-    cursor.executemany(sql_insert, bulk)
-    db.commit()
+        # print("{k} : {dt} : {vv}".format(k=k, dt=v[0], vv=result))
+        # print(sql_insert)
+        # print(bulk)
+        try :
+            cursor.executemany(sql_insert, bulk)
+        except :
+            print("error")
+            pass
+        db.commit()
 
 
-print("################################")
-print("## " +table_name)
-print("time :", time.time() - start)  
-print("last index : " + str(ind) )
-print("################################")
+    print("################################")
+    print("## " +table_name)
+    print("time :", time.time() - start)  
+    print("last index : " + str(ind) )
+    print("################################")
