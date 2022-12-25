@@ -23,10 +23,10 @@ db_port = config['oracle_connect_info']['db_port']
 db_name = config['oracle_connect_info']['db_name']
 db_username = config['oracle_connect_info']['db_username']
 db_password = config['oracle_connect_info']['db_password']
-total_row_cnt = int(config['table_info']['total_row_cnt'])
+insert_row_cnt = int(config['table_info']['insert_row_cnt'])
 commit_cnt = int(config['table_info']['commit_cnt'])
-owner = config['table_info']['owner']
-table_name = config['table_info']['table_name']
+owner = config['table_info']['owner'].upper()
+table_name = config['table_info']['table_name'].upper()
 
 
 try :
@@ -79,7 +79,7 @@ insert_sql = insert_sql.format(
                                     insert_value = insert_value
                                 )
 
-def f_fake_val(k,v,ind) :    
+def f_fake_val(k,v,start_id,increment_id,insert_row_cnt) :    
 
     column_name = k
 
@@ -89,12 +89,16 @@ def f_fake_val(k,v,ind) :
     data_length2 = v[3] # data_length
 
     if column_name == "ID" or column_name == "id" :
-        return ind
+        return increment_id
 
     if "VARCHAR" in data_type :
         if 1 == 0 :
             pass
-        elif column_name.endswith("_PRNM") :            
+        elif column_name.endswith("CST_NM") :            
+            return fake.name()
+        elif column_name.endswith("_ID") :            
+            return fake.profile()['username']
+        elif column_name.endswith("PRD_NM") :            
             return fake.name()
         elif column_name.endswith("_EADR") :            
             return fake.email()
@@ -109,9 +113,7 @@ def f_fake_val(k,v,ind) :
         elif column_name.endswith("_URL") :            
             return fake.profile()['website'][0]
         elif column_name.endswith("_SEX") :            
-            return fake.profile()['sex']
-        elif column_name.endswith("_URID") :            
-            return fake.profile()['username']
+            return fake.profile()['sex']        
         elif column_name.endswith("_PATH") :            
             return fake.file_path(depth=3)
         else :
@@ -124,6 +126,8 @@ def f_fake_val(k,v,ind) :
     elif "NUMBER" in data_type :
         if 1==0 :
             pass
+        elif column_name.endswith("_ID") :  
+            return fake.pyint(min_value=1, max_value=start_id+insert_row_cnt)          
         elif column_name.endswith("_AGE") :  
             return fake.pyint(min_value=10, max_value=80)          
         elif column_name.endswith("_QTY") :  
@@ -147,6 +151,7 @@ def f_fake_val(k,v,ind) :
 cursor.execute(check_start_id.format(owner=owner, table_name=table_name))
 row = cursor.fetchone()
 start_id = row[0]
+increment_id = start_id
 info("I", "Last ID : " + str(start_id))
 info("I", "Start ID : " + str(start_id+1))
 
@@ -154,13 +159,13 @@ info("I", "Start ID : " + str(start_id+1))
 start_time = time.time() 
 
 bulk = []
-for i in range(1, total_row_cnt+1) : 
+for i in range(1, insert_row_cnt+1) : 
     
-    start_id += 1
+    increment_id += 1
 
     record = []
     for k, v in columns.items() :
-        result = f_fake_val(k,v,start_id)
+        result = f_fake_val(k,v,start_id,increment_id,insert_row_cnt)
         record.append(result)
     
     bulk.append(record)    
@@ -170,10 +175,10 @@ for i in range(1, total_row_cnt+1) :
         db.commit()
         info("I", "Commit : " + str(commit_cnt))
         bulk = []
-    elif total_row_cnt == i and total_row_cnt % commit_cnt != 0 :
+    elif insert_row_cnt == i and insert_row_cnt % commit_cnt != 0 :
         cursor.executemany(insert_sql, bulk)
         db.commit()
-        info("I", "Commit : " + str(total_row_cnt % commit_cnt))
+        info("I", "Commit : " + str(insert_row_cnt % commit_cnt))
 
 
 info("I", "Elapsed Time : " + str(round(time.time() - start_time,2)) + " sec")
