@@ -12,9 +12,10 @@
 [Ll]ocal
 [Ss]cripts
 pyvenv.cfg
-.venv
-venv
+**/venv
 config.ini
 pip-selfcheck.json
+**/tmp
+**/__pycache__
 
 # End of https://www.toptal.com/developers/gitignore/api/venv
