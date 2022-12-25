@@ -57,6 +57,9 @@ MOD_DTM DATE
 CREATE UNIQUE INDEX OBJ_OWN.TEST_PK ON OBJ_OWN.TEST (ID) TABLESPACE USERS;
 ```
 
+# model
+![image](img/model.png)
+
 # testing
 ```bash
 $ python mock_data.py
