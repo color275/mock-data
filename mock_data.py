@@ -7,6 +7,7 @@ from info import *
 import datetime as dt
 import random
 import time
+from faker_vehicle import VehicleProvider
 
 
 
@@ -27,6 +28,8 @@ insert_row_cnt = int(config['table_info']['insert_row_cnt'])
 commit_cnt = int(config['table_info']['commit_cnt'])
 owner = config['table_info']['owner'].upper()
 table_name = config['table_info']['table_name'].upper()
+
+std_dt = dt.datetime(2021, 1, 1)
 
 
 try :
@@ -98,8 +101,10 @@ def f_fake_val(k,v,start_id,increment_id,insert_row_cnt) :
             return fake.name()
         elif column_name.endswith("_ID") :            
             return fake.profile()['username']
+        elif column_name.endswith("_DT") :            
+            return fake.date_between(std_dt).strftime('%Y%m%d')
         elif column_name.endswith("PRD_NM") :            
-            return fake.name()
+            return fake.vehicle_make()
         elif column_name.endswith("_EADR") :            
             return fake.email()
         elif column_name.endswith("_HADR") :            
@@ -131,7 +136,7 @@ def f_fake_val(k,v,start_id,increment_id,insert_row_cnt) :
         elif column_name.endswith("_AGE") :  
             return fake.pyint(min_value=10, max_value=80)          
         elif column_name.endswith("_QTY") :  
-            return fake.pyint(min_value=1, max_value=100)          
+            return fake.pyint(min_value=1, max_value=20)          
         elif column_name.endswith("_AMT") :  
             return fake.pyint(min_value=1000, max_value=100000)          
         else :
@@ -143,9 +148,21 @@ def f_fake_val(k,v,start_id,increment_id,insert_row_cnt) :
         elif column_name == "MOD_DTM" :
             return dt.datetime.now()
         elif column_name == "REG_DTM" :
-            return fake.date_between(dt.datetime(2020, 1, 1), dt.datetime.now()-dt.timedelta(1))
+            return fake.date_between(std_dt, dt.datetime.now()-dt.timedelta(1))
         else :
-            return fake.date_between(dt.datetime(2020, 1, 1))
+            return fake.date_between(std_dt)
+
+    elif data_type == "CLOB" :
+
+        if 1==0 :
+            pass
+        elif column_name == "PRD_CNTS" :
+            # lob_size = 0.5 * 1024 * 1024 # MB
+            lob_size = 100  # Byte
+            rate = random.choice([0.2,0.5,0.7,1])
+            text_size = fake.pyint(min_value=int(lob_size * rate), max_value=lob_size)
+            return fake.text(text_size)
+        
 
 
 cursor.execute(check_start_id.format(owner=owner, table_name=table_name))
