@@ -23,14 +23,14 @@ Create `config.ini` file in your project root.
 db_host = X.X.X.X
 db_port = 1521
 db_name = orcl
-db_username = obj_own
-db_password = obj_own
+db_username = poc_own
+db_password = poc_own
 
 [table_info]
-total_row_cnt = 1000
+insert_row_cnt = 1000
 commit_cnt = 100
-owner = OBJ_OWN
-table_name = TEST
+owner = poc_own
+table_name = ord_ord_m
 ```
 
 # example table
